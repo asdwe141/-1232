@@ -2,100 +2,92 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="referrer" content="no-referrer">
-<title>FIRE-CHECK | QR 스캐너 진단 개선</title>
-<script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<meta name="referrer" content="no-referrer"><title>FIRE-CHECK | 실시간 QR 스캔</title>
+<script defer src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#eef3f8;color:#15314c;font-family:system-ui,-apple-system,sans-serif}header{background:#133251;color:white;padding:17px 18px;font-weight:750}header small{display:block;font-size:12px;color:#c3d5e7;margin-top:4px}main{max-width:600px;margin:14px auto;padding:0 12px 26px}.card{background:white;border:1px solid #d8e3ee;border-radius:15px;padding:15px}h1{font-size:19px;margin:0 0 9px}p{font-size:13px;line-height:1.55;color:#526b83}#reader{width:100%;min-height:245px;background:#101a26;overflow:hidden;border-radius:12px;position:relative}#reader video{display:block;width:100%;object-fit:contain}#status{font-weight:700;margin:12px 0 5px;font-size:14px;line-height:1.5}#detail{color:#6c4f15;background:#fff7dd;border-radius:8px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap;display:none}#stats{font-size:12px;color:#607488;margin:10px 0}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}button,a.button{border:0;border-radius:10px;padding:12px 9px;text-decoration:none;text-align:center;font-size:14px;font-weight:700;cursor:pointer;background:#17619d;color:#fff}button.secondary,a.button{background:#e6eff8;color:#164b78}button:disabled{opacity:.6}.full{display:block;width:100%;margin:9px 0}input{box-sizing:border-box;border-radius:9px;border:1px solid #b7c9d8;padding:12px;width:100%;font-size:14px}label{display:block;margin:14px 0 6px;font-size:13px;font-weight:700}.small{font-size:12px;color:#526b83}#zoomWrap{display:none}.num{font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}body{margin:0;background:#edf3f8;color:#15314c;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}header{background:#143554;color:white;font-size:18px;font-weight:750;padding:16px}header small{display:block;font-size:12px;color:#d4e6f6;margin-top:5px;font-weight:400}main{max-width:650px;margin:auto;padding:13px 12px 40px}.card{background:white;border:1px solid #dce6ef;border-radius:14px;padding:14px}h1{font-size:19px;margin:3px 0 9px}p{color:#5b7084;font-size:13px;line-height:1.55}.camera{background:#111d2a;border-radius:12px;position:relative;overflow:hidden;min-height:250px}.camera video{width:100%;height:auto;max-height:73vh;display:block;object-fit:contain}.guide{position:absolute;left:4%;right:4%;top:4%;bottom:4%;border:1px solid rgba(255,255,255,.18);border-radius:14px;pointer-events:none}.hint{position:absolute;bottom:10px;left:10px;right:10px;padding:7px;border-radius:7px;background:#081927ab;color:white;font-size:12px;text-align:center;pointer-events:none}#status{font-weight:700;line-height:1.5;margin:13px 0 6px}#diagnostic{font-size:12px;color:#785216;background:#fff6db;padding:10px;border-radius:9px;white-space:pre-wrap;display:none}#meta{color:#657b8f;font-size:12px;margin:8px 0}.row{display:flex;gap:8px;margin:12px 0}.row>*{flex:1}button,a.btn{border:0;border-radius:9px;background:#17619d;color:#fff;cursor:pointer;font-size:14px;font-weight:700;padding:12px;text-align:center;text-decoration:none}button.alt,a.btn.alt{background:#e7f1f8;color:#14496d}button:disabled{opacity:.5}.full{display:block;width:100%;margin:8px 0}.range{display:none}label{font-size:13px;font-weight:700;display:block;margin:13px 0 6px}input[type=range]{width:100%;accent-color:#196cad}input[type=url]{width:100%;font-size:14px;padding:11px;border-radius:8px;border:1px solid #b8cadb}.tiny{font-size:12px;color:#60748a}#torch{display:none}
 </style>
 </head>
-<body><header>FIRE-CHECK<small>소화기·소화전 점검 · QR 인식 진단 버전</small></header>
-<main><section class="card"><h1>설비 QR코드 실시간 스캔</h1>
-<p>QR 전체를 화면에 담고 흔들리지 않게 비춰 주세요. 기존 QR을 읽으면 해당 점검표로 이동합니다.</p>
-<div id="reader" aria-label="QR 카메라 화면"></div>
-<div id="status" role="status" aria-live="polite">스캐너 준비 중…</div>
-<div id="detail" role="alert"></div><div id="stats" class="num">인식 엔진: 준비 중 · 읽은 코드: 0건</div>
-<div class="actions"><button id="restart" type="button">카메라 다시 시작</button><button id="switch" class="secondary" type="button">인식 방식 전환</button></div>
-<div id="zoomWrap"><label for="zoom">카메라 확대 <span id="zoomLabel"></span></label><input type="range" id="zoom" min="1" max="3" step="0.1"></div>
-<button id="torch" class="secondary full" type="button" hidden>손전등 켜기</button>
-<label for="manual">QR을 인식하지 못하면 주소 붙여넣기로 확인</label>
-<input id="manual" type="url" placeholder="QR 주소 붙여넣기 (진단용)"><button id="openManual" class="secondary full" type="button">입력한 설비 주소 확인</button>
-<a id="back" class="button full" href="#" hidden>FIRE-CHECK로 돌아가기</a>
-<p class="small">스캔 성공 시 자동 이동합니다. 영상은 업로드하지 않습니다. QR 인식이 안 되면 기본 카메라에서 같은 QR을 읽을 수 있는지도 비교해 주세요.</p>
+<body><header>FIRE-CHECK<small>소화기·소화전 실시간 QR 스캔</small></header>
+<main><section class="card"><h1>설비 QR 스캔</h1><p>화면 어느 위치에든 QR코드가 보이면 읽기를 시도합니다. 정중앙에 정확히 맞추지 않아도 됩니다.</p>
+<div class="camera"><video id="camera" autoplay muted playsinline aria-label="QR 스캔 카메라"></video><div class="guide"></div><div class="hint">멀리서 잘 보이지 않으면 1.5~2배 확대해 보세요</div></div>
+<div id="status" role="status" aria-live="polite">스캐너 준비 중…</div><div id="diagnostic" role="alert"></div><div id="meta">인식 방식 준비 중</div>
+<div class="row"><button id="retry" type="button">카메라 다시 시작</button><button id="torch" class="alt" type="button">손전등 켜기</button></div>
+<div class="range" id="zoomArea"><label for="zoom">카메라 확대 <span id="zoomText"></span></label><input type="range" id="zoom" min="1" max="3" step="0.1" value="1"></div>
+<p class="tiny">카메라 확대를 지원하지 않는 기기도 있습니다. QR 인식 후 기존 FIRE-CHECK 설비 점검표로 이동합니다.</p>
+<label for="manual">주소를 읽었는데 점검표로 이동하지 않을 때 (진단용)</label><input id="manual" type="url" placeholder="기본 카메라로 읽은 설비 URL 붙여넣기"><button id="manualGo" class="alt full">주소 확인</button>
+<a id="back" class="btn alt full" hidden>FIRE-CHECK로 돌아가기</a>
 </section></main>
 <script>
 'use strict';
-const $=x=>document.getElementById(x);
-const query=new URLSearchParams(location.search);
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
 let app=null;
-try{let u=new URL(query.get('return')||'');if(u.protocol!=='https:'||u.hostname!=='script.google.com'||!/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname))throw Error('invalid');app=u;}catch(_){app=null;}
-if(app){$('back').hidden=false;$('back').href=app.origin+app.pathname;}
-else{setMessage('FIRE-CHECK 연결 주소가 없습니다.','FIRE-CHECK 웹앱의 QR 스캔 버튼에서 이 페이지를 여세요.');}
-let mode='auto',engine='',scanner=null,stream=null,video=null,detector=null,loopActive=false,loopBusy=false,frameId=0,readCount=0,lastRead='',navigating=false,starting=false,torch=false;
-function setMessage(title,detail=''){$('status').textContent=title;$('detail').textContent=detail;$('detail').style.display=detail?'block':'none';}
-function updateStats(){ $('stats').textContent='인식 엔진: '+(engine||'준비 중')+' · 읽은 코드: '+readCount+'건'; }
-function acceptCode(raw){
-  if(navigating)return;
-  readCount++;updateStats();
-  let u;
-  try{u=new URL(String(raw).trim());}catch(_){setMessage('QR을 읽었으나 웹주소가 아닙니다.','설비 QR에는 FIRE-CHECK 웹앱 주소가 들어 있어야 합니다.');return;}
-  const eq=u.searchParams.get('eq')||'';
-  if(!eq){setMessage('QR을 읽었지만 설비 ID가 없습니다.','QR 주소에 eq=설비고유ID가 있는지 확인하세요. 읽은 호스트: '+u.hostname);return;}
-  if(!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(eq)){
-    setMessage('QR을 읽었지만 설비 ID 형식이 다릅니다.','QR의 eq 값이 UUID 형식이 아닙니다. 설비 QR을 새로 발행해야 할 수 있습니다.');return;
+try {const u=new URL(params.get('return')||'');if(u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname))app=u;}catch(_){}
+if(app){$('back').href=app.origin+app.pathname;$('back').hidden=false;}
+let stream=null,reader=null,controls=null,detector=null,nativeTimer=null,started=false,navigating=false,torchOn=false,seen=0,begin=0;
+const camera=$('camera');
+function message(s,details=''){$('status').textContent=s;$('diagnostic').textContent=details;$('diagnostic').style.display=details?'block':'none';}
+function accept(text){
+ if(navigating)return;
+ seen++;
+ let u;try{u=new URL(String(text).trim());}catch(_){message('QR은 인식했지만 URL이 아닙니다.','설비 QR이 웹주소 형식인지 확인해 주세요.');return;}
+ const eq=u.searchParams.get('eq');
+ if(!eq){message('QR 인식 성공 / 설비 ID 없음','QR 주소에 eq=설비ID가 있는지 확인하세요.');return;}
+ if(!app){message('QR 인식 성공 / FIRE-CHECK 연결 주소 없음','QR 스캐너는 FIRE-CHECK 웹앱의 버튼에서 실행해야 합니다.');return;}
+ if(u.origin!==app.origin||u.pathname!==app.pathname){message('QR 인식 성공 / 배포 주소 불일치','기존 QR을 인쇄한 때의 웹앱 배포 URL과 현재 웹앱 URL이 다릅니다. QR을 재발급하기 전에 배포 주소를 확인해 주세요.');return;}
+ navigating=true;message('QR 인식 성공! 설비 점검표로 이동합니다.');
+ try{navigator.vibrate?.(80)}catch(_){}
+ const target=new URL(app.origin+app.pathname);target.searchParams.set('eq',eq);
+ stop();location.replace(target.href);
+}
+function setupTools(track){
+ let c={};try{c=track.getCapabilities?.()||{}}catch(_){}
+ $('torch').style.display=c.torch?'block':'none';torchOn=false;$('torch').textContent='손전등 켜기';
+ if(c.zoom&&Number.isFinite(c.zoom.min)&&Number.isFinite(c.zoom.max)&&c.zoom.max>c.zoom.min){
+  $('zoomArea').style.display='block';$('zoom').min=c.zoom.min;$('zoom').max=c.zoom.max;$('zoom').step=c.zoom.step||0.1;
+  $('zoom').value=Math.max(c.zoom.min,Math.min(c.zoom.max,1));$('zoomText').textContent=Number($('zoom').value).toFixed(1)+'×';
+ }else $('zoomArea').style.display='none';
+}
+async function stop(){started=false;clearTimeout(nativeTimer);nativeTimer=null;
+ if(controls){try{controls.stop()}catch(_){}controls=null;}
+ reader=null;detector=null;
+ if(stream){for(const t of stream.getTracks())t.stop();stream=null;}
+ camera.pause();camera.srcObject=null;
+}
+async function start(){if(started)return;started=true;navigating=false;begin=performance.now();seen=0;
+ $('retry').disabled=true;message('후면 카메라 시작 중…');
+ try{
+  if(!app){throw Error('FIRE-CHECK 웹앱에서 QR 스캔 버튼을 눌러 실행해 주세요.');}
+  if(!isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('HTTPS 카메라 접근을 지원하는 브라우저가 필요합니다.');
+  // A single camera stream is shared by both decoders: no competing cameras and no center-only ROI.
+  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}}});
+  camera.srcObject=stream;await camera.play();
+  const track=stream.getVideoTracks()[0];setupTools(track);
+  try{const cap=track.getCapabilities?.()||{};if(cap.focusMode?.includes('continuous'))await track.applyConstraints({advanced:[{focusMode:'continuous'}]});}catch(_){}
+  let engines=[];
+  if('BarcodeDetector' in window){try{const fmt=await BarcodeDetector.getSupportedFormats();if(fmt.includes('qr_code')){detector=new BarcodeDetector({formats:['qr_code']});engines.push('기기 기본 인식');}}catch(_){}}
+  if(window.ZXingBrowser?.BrowserQRCodeReader){
+   reader=new ZXingBrowser.BrowserQRCodeReader(250);
+   try{controls=await reader.decodeFromVideoElement(camera,(result,error)=>{if(result?.getText)accept(result.getText());});engines.push('ZXing 각도 인식');}
+   catch(e){reader=null;controls=null;}
   }
-  if(!app){setMessage('QR 인식 성공, FIRE-CHECK 연결 주소가 없습니다.','스캐너를 FIRE-CHECK의 QR 버튼으로 다시 열어주세요.');return;}
-  if(u.origin!==app.origin||u.pathname!==app.pathname){
-    setMessage('QR을 읽었지만 다른 웹앱 배포 주소입니다.','기존 QR을 생성한 배포와 현재 FIRE-CHECK 배포가 다를 수 있습니다. 기존 배포 URL로 접속하도록 QR/배포 주소를 확인하세요.');return;
-  }
-  navigating=true;setMessage('QR 인식 성공! 점검표로 이동합니다.');
-  const dest=new URL(app.origin+app.pathname);dest.searchParams.set('eq',eq);
-  try{navigator.vibrate?.(70);}catch(_){}
-  location.replace(dest.href);
+  if(!engines.length)throw Error('인식 라이브러리 불러오기에 실패했습니다. 인터넷 연결을 확인하세요.');
+  $('meta').textContent='활성 인식 방식: '+engines.join(' + ')+' · 영상 전체 스캔';
+  message('QR 스캔 중 — 화면 어느 위치에 비춰도 됩니다.');
+  // Native recognizer is rate-limited; the ZXing QR reader runs continuously on the same video.
+  if(detector){const tick=async()=>{
+    if(!started||navigating)return;
+    try{if(camera.readyState>=2){const results=await detector.detect(camera);if(results.length)accept(results[0].rawValue);}}catch(_){}
+    if(started&&!navigating)nativeTimer=setTimeout(tick,650);
+   };tick();}
+ }catch(e){await stop();message('스캐너 실행 실패',e.message||String(e));}
+ finally{$('retry').disabled=false;}
 }
-async function stop(){loopActive=false;if(frameId)cancelAnimationFrame(frameId);frameId=0;
- if(scanner){const prev=scanner;scanner=null;try{await prev.stop();}catch(_){}try{await prev.clear();}catch(_){}}
- if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
- if(video){video.srcObject=null;video.remove();video=null;}
- $('reader').innerHTML='';$('torch').hidden=true;$('zoomWrap').style.display='none';}
-function setupCameraTools(track){let caps={};try{caps=track.getCapabilities?.()||{};}catch(_){}
- $('torch').hidden=caps.torch!==true;torch=false;$('torch').textContent='손전등 켜기';
- if(caps.zoom&&Number.isFinite(caps.zoom.min)&&Number.isFinite(caps.zoom.max)&&caps.zoom.max>caps.zoom.min){
-  $('zoomWrap').style.display='block';$('zoom').min=caps.zoom.min;$('zoom').max=caps.zoom.max;$('zoom').step=caps.zoom.step||0.1;$('zoom').value=Math.max(caps.zoom.min,Math.min(caps.zoom.max,1));$('zoomLabel').textContent=$('zoom').value+'×';
- }
-}
-function track(){if(stream)return stream.getVideoTracks()[0];try{return scanner?.getRunningTrackCameraCapabilities&&null;}catch(_){return null;}}
-async function startNative(){
-  if(!('BarcodeDetector' in window))throw Error('기본 QR 인식 엔진 미지원');
-  const supported=await BarcodeDetector.getSupportedFormats();if(!supported.includes('qr_code'))throw Error('기본 QR 인식 미지원');
-  detector=new BarcodeDetector({formats:['qr_code']});
-  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
-  video=document.createElement('video');video.setAttribute('playsinline','');video.setAttribute('muted','');video.muted=true;video.autoplay=true;
-  video.srcObject=stream;$('reader').appendChild(video);await video.play();
-  const t=stream.getVideoTracks()[0];try{let c=t.getCapabilities?.()||{};if(c.focusMode?.includes('continuous'))await t.applyConstraints({advanced:[{focusMode:'continuous'}]});}catch(_){}
-  setupCameraTools(t);engine='기기 기본 QR 인식';updateStats();loopActive=true;
-  async function tick(){if(!loopActive||navigating)return;if(!loopBusy&&video?.readyState>=2){loopBusy=true;try{const items=await detector.detect(video);for(let b of items){if(b.rawValue){acceptCode(b.rawValue);break;}}}catch(e){lastRead=String(e);}finally{loopBusy=false;}}
-   if(loopActive&&!navigating)frameId=requestAnimationFrame(tick);
-  }tick();setMessage('기기 기본 QR 인식 중 — QR을 중앙에 비춰 주세요.');
-}
-async function startLibrary(){
- if(typeof Html5Qrcode==='undefined')throw Error('호환 QR 라이브러리 로딩 실패. 네트워크를 확인하세요.');
- scanner=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE],verbose:false});
- await scanner.start({facingMode:'environment'},{fps:15,disableFlip:true},acceptCode,()=>{});
- engine='호환 QR 인식';updateStats();setMessage('호환 QR 인식 중 — QR 전체를 화면에 담아 주세요.');
- try{setupCameraTools(scanner.getRunningTrackCapabilities?{getCapabilities:()=>scanner.getRunningTrackCapabilities()}:{});}catch(_){}
-}
-async function start(){if(starting||!app)return;starting=true;$('restart').disabled=true;$('switch').disabled=true;
- try{await stop();readCount=0;navigating=false;updateStats();setMessage('카메라 시작 중…');
-  if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('HTTPS 카메라 접근이 필요합니다.');
-  if(mode!=='library'){try{await startNative();return;}catch(e){await stop();if(mode==='native')throw e;}}
-  await startLibrary();
- }catch(e){await stop();setMessage('스캐너 실행 오류',e?.message||String(e));}
- finally{starting=false;$('restart').disabled=false;$('switch').disabled=false;}}
-$('restart').addEventListener('click',start);
-$('switch').addEventListener('click',()=>{mode=engine==='기기 기본 QR 인식'?'library':'auto';start();});
-$('openManual').addEventListener('click',()=>{const s=$('manual').value.trim();if(!s){setMessage('QR 주소를 입력해 주세요.');return;}acceptCode(s);});
-$('torch').addEventListener('click',async()=>{const t=stream?.getVideoTracks()[0];try{const v=!torch;if(t)await t.applyConstraints({advanced:[{torch:v}]});else if(scanner)await scanner.applyVideoConstraints({advanced:[{torch:v}]});torch=v;$('torch').textContent=v?'손전등 끄기':'손전등 켜기';}catch(_){setMessage('손전등 조작을 지원하지 않는 기기입니다.');}});
-$('zoom').addEventListener('input',async e=>{const z=Number(e.target.value);$('zoomLabel').textContent=z.toFixed(1)+'×';try{const t=stream?.getVideoTracks()[0];if(t)await t.applyConstraints({advanced:[{zoom:z}]});else if(scanner)await scanner.applyVideoConstraints({advanced:[{zoom:z}]});}catch(_){}});
-window.addEventListener('pagehide',()=>{stop();});window.addEventListener('load',()=>{if(app)start();});
+$('retry').addEventListener('click',async()=>{await stop();start();});
+$('torch').addEventListener('click',async()=>{try{const v=!torchOn;await stream.getVideoTracks()[0].applyConstraints({advanced:[{torch:v}]});torchOn=v;$('torch').textContent=v?'손전등 끄기':'손전등 켜기';}catch(_){message('손전등 기능을 지원하지 않습니다.');}});
+$('zoom').addEventListener('input',async(e)=>{const v=Number(e.target.value);$('zoomText').textContent=v.toFixed(1)+'×';try{await stream.getVideoTracks()[0].applyConstraints({advanced:[{zoom:v}]});}catch(_){}});
+$('manualGo').addEventListener('click',()=>{if($('manual').value.trim())accept($('manual').value.trim());});
+window.addEventListener('pagehide',()=>{stop();});
+window.addEventListener('load',start);
 </script></body></html>
