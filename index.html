@@ -9,7 +9,7 @@
 </style>
 </head>
 <body><header>FIRE-CHECK<small>소화기·소화전 실시간 QR 스캔</small></header>
-<main><section class="card"><h1>설비 QR 스캔</h1><p>화면 어느 위치에든 QR코드가 보이면 읽기를 시도합니다. 정중앙에 정확히 맞추지 않아도 됩니다.</p>
+<main><section class="card"><h1>설비 QR 스캔</h1><p>QR코드를 비추면 인식된 설비 주소로 바로 이동합니다. FIRE-CHECK 버튼으로 열거나 이 페이지를 직접 열어도 됩니다.</p>
 <div class="camera"><video id="camera" autoplay muted playsinline aria-label="QR 스캔 카메라"></video><div class="guide"></div><div class="hint">멀리서 잘 보이지 않으면 1.5~2배 확대해 보세요</div></div>
 <div id="status" role="status" aria-live="polite">스캐너 준비 중…</div><div id="diagnostic" role="alert"></div><div id="meta">인식 방식 준비 중</div>
 <div class="row"><button id="retry" type="button">카메라 다시 시작</button><button id="torch" class="alt" type="button">손전등 켜기</button></div>
@@ -22,8 +22,14 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
+// 연결 주소(return)는 편의 기능입니다. QR 자체에 포함된 배포 주소를 우선합니다.
 let app=null;
-try {const u=new URL(params.get('return')||'');if(u.protocol==='https:'&&u.hostname==='script.google.com'&&/^\/macros\/s\/[^/]+\/exec$/.test(u.pathname))app=u;}catch(_){}
+try {
+  const raw=params.get('return')||'';
+  const candidate=new URL(raw);
+  if(candidate.protocol==='https:' && candidate.hostname==='script.google.com' &&
+     /^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(candidate.pathname)) app=candidate;
+}catch(_){}
 if(app){$('back').href=app.origin+app.pathname;$('back').hidden=false;}
 let stream=null,reader=null,controls=null,detector=null,nativeTimer=null,started=false,navigating=false,torchOn=false,seen=0,begin=0;
 const camera=$('camera');
@@ -31,15 +37,28 @@ function message(s,details=''){$('status').textContent=s;$('diagnostic').textCon
 function accept(text){
  if(navigating)return;
  seen++;
- let u;try{u=new URL(String(text).trim());}catch(_){message('QR은 인식했지만 URL이 아닙니다.','설비 QR이 웹주소 형식인지 확인해 주세요.');return;}
- const eq=u.searchParams.get('eq');
- if(!eq){message('QR 인식 성공 / 설비 ID 없음','QR 주소에 eq=설비ID가 있는지 확인하세요.');return;}
- if(!app){message('QR 인식 성공 / FIRE-CHECK 연결 주소 없음','QR 스캐너는 FIRE-CHECK 웹앱의 버튼에서 실행해야 합니다.');return;}
- if(u.origin!==app.origin||u.pathname!==app.pathname){message('QR 인식 성공 / 배포 주소 불일치','기존 QR을 인쇄한 때의 웹앱 배포 URL과 현재 웹앱 URL이 다릅니다. QR을 재발급하기 전에 배포 주소를 확인해 주세요.');return;}
- navigating=true;message('QR 인식 성공! 설비 점검표로 이동합니다.');
+ let u;
+ try{u=new URL(String(text).trim());}
+ catch(_){message('QR은 읽었지만 웹주소가 아닙니다.','FIRE-CHECK 설비 QR코드인지 확인해 주세요.');return;}
+ // 외부 웹사이트로 임의 이동하지 않도록 Apps Script 정식 배포 경로만 허용합니다.
+ if(u.protocol!=='https:' || u.hostname!=='script.google.com' ||
+    !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(u.pathname) ||
+    u.username || u.password || u.port){
+   message('QR 인식 성공 / FIRE-CHECK 주소가 아닙니다.',
+      'Google Apps Script 정식 웹앱 주소(https://script.google.com/macros/s/.../exec)만 점검표로 열 수 있습니다.');return;
+ }
+ const eq=u.searchParams.get('eq')||'';
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eq)){
+   message('QR 인식 성공 / 설비 ID가 올바르지 않습니다.',
+     '기존 설비 QR에 포함된 eq=설비고유ID 값을 확인하세요.');return;
+ }
+ // 스캐너 버튼에서 전달한 주소가 없거나 다르더라도 QR에 인쇄된 원래 배포 주소로 이동합니다.
+ // 실수로 새 배포 주소를 만들었어도 기존 설비 라벨의 연결을 우선 보존합니다.
+ navigating=true;message('설비 QR 인식 성공! 점검표로 이동합니다.');
  try{navigator.vibrate?.(80)}catch(_){}
- const target=new URL(app.origin+app.pathname);target.searchParams.set('eq',eq);
- stop();location.replace(target.href);
+ const target=new URL(u.origin+u.pathname);
+ target.searchParams.set('eq',eq);
+ stop();location.assign(target.href);
 }
 function setupTools(track){
  let c={};try{c=track.getCapabilities?.()||{}}catch(_){}
@@ -58,7 +77,6 @@ async function stop(){started=false;clearTimeout(nativeTimer);nativeTimer=null;
 async function start(){if(started)return;started=true;navigating=false;begin=performance.now();seen=0;
  $('retry').disabled=true;message('후면 카메라 시작 중…');
  try{
-  if(!app){throw Error('FIRE-CHECK 웹앱에서 QR 스캔 버튼을 눌러 실행해 주세요.');}
   if(!isSecureContext||!navigator.mediaDevices?.getUserMedia)throw Error('HTTPS 카메라 접근을 지원하는 브라우저가 필요합니다.');
   // A single camera stream is shared by both decoders: no competing cameras and no center-only ROI.
   stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}}});
@@ -89,5 +107,5 @@ $('torch').addEventListener('click',async()=>{try{const v=!torchOn;await stream.
 $('zoom').addEventListener('input',async(e)=>{const v=Number(e.target.value);$('zoomText').textContent=v.toFixed(1)+'×';try{await stream.getVideoTracks()[0].applyConstraints({advanced:[{zoom:v}]});}catch(_){}});
 $('manualGo').addEventListener('click',()=>{if($('manual').value.trim())accept($('manual').value.trim());});
 window.addEventListener('pagehide',()=>{stop();});
-window.addEventListener('load',start);
+window.addEventListener('load',()=>{if(!app){$('meta').textContent='연결 주소 없이 실행 중 — 설비 QR에 포함된 주소로 이동합니다.';}start();});
 </script></body></html>
