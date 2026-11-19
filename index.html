@@ -5,90 +5,117 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://unpkg.com 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://unpkg.com; worker-src 'self' blob:;">
-<title>FIRE-CHECK | 실시간 QR 스캔</title>
+<title>FIRE-CHECK | QR 빠른 스캔</title>
 <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#edf2f8;color:#172c43;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif}
-header{background:#132f4d;color:white;padding:17px 18px;font-weight:750;letter-spacing:.3px}header small{display:block;color:#bad1ea;font-weight:450;margin-top:4px}
-main{max-width:530px;margin:24px auto;padding:0 14px 30px}
-.card{background:#fff;border:1px solid #dce5ef;border-radius:16px;padding:19px;box-shadow:0 4px 18px #243c5610}
-h1{font-size:20px;margin:0 0 8px}p{line-height:1.65;color:#49627a;font-size:14px}#reader{min-height:255px;background:#101927;border-radius:12px;overflow:hidden;margin:14px 0}#reader video{border-radius:10px}
-#status{font-size:14px;line-height:1.65;min-height:26px;font-weight:600;color:#274d72}
-button,a.link{display:block;width:100%;border:none;border-radius:10px;padding:13px 12px;margin-top:10px;text-align:center;font-size:15px;font-weight:650;text-decoration:none;cursor:pointer}
-button.primary{background:#1761a0;color:white}button.secondary,a.link{background:#e7eff8;color:#17446e}
-.tip{font-size:12px;color:#60758b;margin-top:16px}#error{font-size:13px;color:#b42318;white-space:pre-wrap;overflow-wrap:anywhere}
+*{box-sizing:border-box}body{margin:0;background:#edf2f8;color:#152b43;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif}
+header{background:#132f4d;color:#fff;padding:18px;font-size:19px;font-weight:750}header small{display:block;color:#bfd2e6;font-size:12px;margin-top:3px;font-weight:400}
+main{max-width:590px;margin:16px auto;padding:0 12px 36px}.card{background:white;border:1px solid #dbe6f0;border-radius:16px;padding:16px;box-shadow:0 6px 22px #243c5610}
+h1{font-size:19px;margin:0 0 7px}p{font-size:14px;color:#4c6075;line-height:1.55;margin:7px 0 13px}
+#reader{width:100%;min-height:270px;background:#101824;border-radius:12px;overflow:hidden;margin:12px 0 10px}#reader video{max-width:100%;border-radius:10px}
+#status{font-weight:650;font-size:14px;min-height:26px;color:#174f7b;line-height:1.5}#error{font-size:13px;color:#aa2419;white-space:pre-wrap;overflow-wrap:anywhere}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}button,.link{border:0;border-radius:10px;padding:13px 9px;font-size:14px;font-weight:650;cursor:pointer;text-decoration:none;text-align:center;background:#1761a0;color:white}
+button.secondary,.link{background:#e8f0f8;color:#1d4c72}button:disabled{opacity:.55;cursor:not-allowed}
+.full{display:block;width:100%;margin-top:12px}.tools{margin-top:14px;display:none;padding:13px;background:#f3f7fc;border-radius:12px}.toolrow{display:flex;gap:10px;align-items:center}.toolrow input{width:100%}.toolrow label{font-size:14px;font-weight:600;min-width:50px}.toolrow output{font-variant-numeric:tabular-nums;font-size:13px;min-width:40px;text-align:right}
+.tip{font-size:12px;color:#60758b;margin-top:14px}.pill{display:inline-block;background:#e4f4eb;color:#217544;padding:4px 8px;border-radius:20px;font-size:11px;font-weight:700}
 </style>
 </head>
 <body>
-<header>FIRE-CHECK<small>소방시설 월간 점검 · 실시간 QR 스캐너</small></header>
-<main><div class="card">
-<h1>설비 QR코드 스캔</h1>
-<p>스마트폰 후면 카메라를 설비 QR 라벨에 비추세요. 인식되면 별도 확인 없이 해당 설비의 점검표로 이동합니다.</p>
-<div id="reader" aria-label="QR 카메라 영상"></div>
+<header>FIRE-CHECK<small>소화기·소화전 점검 | 고인식률 QR 스캐너</small></header>
+<main><section class="card">
+<h1>설비 QR코드 스캔 <span class="pill">실시간</span></h1>
+<p>후면 카메라로 QR 전체를 화면에 담아 주세요. 인식 즉시 해당 설비 점검표로 이동합니다.</p>
+<div id="reader" aria-label="QR 스캔 카메라 영상"></div>
 <div id="status" role="status" aria-live="polite">스캐너 준비 중…</div>
-<div id="error"></div>
-<button id="retry" class="primary" type="button">카메라 다시 시작</button>
-<a class="link" id="returnLink" href="#">FIRE-CHECK로 돌아가기</a>
-<p class="tip">HTTPS 및 카메라 권한이 필요합니다. QR 이미지와 카메라 영상은 서버로 업로드하지 않습니다. 최초 실행 시 카메라 권한을 허용하세요.</p>
-</div></main>
+<div id="error" role="alert"></div>
+<div class="tools" id="tools">
+  <div id="zoomArea" style="display:none"><div class="toolrow"><label for="zoom">확대</label><input id="zoom" type="range" step="0.1"><output id="zoomLabel">1.0×</output></div></div>
+  <button class="secondary full" id="torch" type="button" style="display:none">손전등 켜기</button>
+</div>
+<div class="controls"><button id="retry" type="button">카메라 다시 시작</button><button id="wide" class="secondary" type="button">다른 거리에서 스캔</button></div>
+<a class="link full" id="returnLink" href="#">FIRE-CHECK로 돌아가기</a>
+<p class="tip">인식이 잘 안 되면 QR을 10~25cm 정도 떨어뜨리고, 화면에서 흔들림 없이 1~2초 유지하세요. 가까이서 흐리다면 조금 멀어지거나 확대 기능을 이용하세요. 빛 반사는 피하세요. 영상은 서버에 업로드하지 않습니다.</p>
+</section></main>
 <script>
 'use strict';
-const el = id => document.getElementById(id);
-const params=new URLSearchParams(location.search);
+const $=id=>document.getElementById(id);
+const p=new URLSearchParams(location.search);
 let app=null;
-try {
-  const value=params.get('return')||'';
-  app=new URL(value);
-  if(app.protocol!=='https:' || app.hostname!=='script.google.com' ||
-     !/^\/macros\/s\/[^/]+\/exec$/.test(app.pathname))throw Error('invalid app');
-} catch(_){el('status').textContent='FIRE-CHECK 연결 주소가 올바르지 않습니다.';el('error').textContent='FIRE-CHECK 웹앱의 QR 버튼으로 접속해 주세요.';}
-if(app){
-  el('returnLink').href=app.origin+app.pathname;
-} else {el('returnLink').style.display='none';}
-let scanner=null,scanning=false,done=false;
-function setError(message){el('error').textContent=message;}
+try{
+  app=new URL(p.get('return')||'');
+  if(app.protocol!=='https:'||app.hostname!=='script.google.com'||!/^\/macros\/s\/[^/]+\/exec$/.test(app.pathname))throw Error('invalid return');
+}catch(_){app=null;}
+if(app){$('returnLink').href=app.origin+app.pathname;}
+else {$('returnLink').style.display='none';$('status').textContent='FIRE-CHECK 연결 주소가 없습니다.';$('error').textContent='FIRE-CHECK 웹앱의 QR 스캔 버튼을 통해 접속해 주세요.';}
+let scanner=null,running=false,finished=false,starting=false,torchOn=false;
+function err(msg){$('error').textContent=msg;}
 async function stop(){
-  if(!scanner)return;
-  try{if(scanning){await scanner.stop();scanning=false;}}catch(_){}
-  try{await scanner.clear();}catch(_){}
-  scanner=null;
+ const s=scanner;scanner=null;running=false;
+ if(!s)return;
+ try{await s.stop();}catch(_){}
+ try{await s.clear();}catch(_){}
 }
-async function onDecoded(value){
-  if(done || !app)return;
-  let link;
-  try {
-    link=new URL(value.trim());
-    if(link.origin!==app.origin || link.pathname!==app.pathname)return;
-    const id=link.searchParams.get('eq')||'';
-    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return;
-    done=true;
-    el('status').textContent='QR 인식 완료! 해당 설비 점검표로 이동합니다.';
-    // 스마트폰 탭을 그대로 점검 화면으로 이동: iframe 간 메시지·팝업 의존하지 않음.
-    const target=new URL(app.origin+app.pathname);
-    target.searchParams.set('eq',id);
-    await stop();
-    location.replace(target.href);
-  }catch(_){return;}
+async function decode(raw){
+ if(finished||!app)return;
+ let found;
+ try{
+   found=new URL(String(raw).trim());
+   if(found.origin!==app.origin||found.pathname!==app.pathname)return;
+   const eq=found.searchParams.get('eq')||'';
+   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eq))return;
+   finished=true;
+   $('status').textContent='인식 성공! 설비 점검표로 이동합니다.';
+   const dest=new URL(app.origin+app.pathname);dest.searchParams.set('eq',eq);
+   try{if(navigator.vibrate)navigator.vibrate(60);}catch(_){}
+   // Stop is best effort; don't block navigation on slow camera shutdown.
+   location.replace(dest.href);
+ }catch(_){}
+}
+async function tryVideoConstraint(partial){
+ if(!scanner||!running)return false;
+ try{await scanner.applyVideoConstraints({advanced:[partial]});return true;}catch(_){return false;}
+}
+async function setupControls(){
+ $('tools').style.display='none';$('zoomArea').style.display='none';$('torch').style.display='none';
+ let caps={};try{caps=scanner.getRunningTrackCapabilities()||{};}catch(_){}
+ let shown=false;
+ const z=caps.zoom;
+ if(z&&Number.isFinite(z.min)&&Number.isFinite(z.max)&&z.max>z.min){
+  const slider=$('zoom');slider.min=String(z.min);slider.max=String(z.max);slider.step=String(z.step||0.1);
+  const initial=Math.max(z.min,Math.min(z.max,1));slider.value=String(initial);$('zoomLabel').textContent=initial.toFixed(1)+'×';
+  $('zoomArea').style.display='block';shown=true;
+ }
+ if(caps.torch===true){$('torch').style.display='block';torchOn=false;$('torch').textContent='손전등 켜기';shown=true;}
+ if(shown)$('tools').style.display='block';
 }
 async function start(){
-  if(!app)return;
-  if(!window.isSecureContext || !navigator.mediaDevices){setError('보안 HTTPS 페이지에서만 카메라 사용이 가능합니다.');return;}
-  if(typeof Html5Qrcode==='undefined') {setError('QR 스캔 라이브러리를 불러오지 못했습니다. 네트워크/도메인 차단 여부를 확인하세요.');return;}
-  done=false;
-  await stop();
-  setError('');
-  el('status').textContent='후면 카메라를 여는 중…';
-  scanner=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE]});
-  try{
-    await scanner.start({facingMode:'environment'},{fps:10,qrbox:(w,h)=>({width:Math.min(260,Math.max(160,Math.floor(w*.75))),height:Math.min(260,Math.max(160,Math.floor(Math.min(w,h)*.75)))})},onDecoded,()=>{});
-    scanning=true;
-    el('status').textContent='설비 QR코드를 카메라 중앙에 비춰 주세요.';
-  }catch(err){
-    setError('카메라 실행 실패: '+(err && err.message ? err.message : String(err))+'\n브라우저 카메라 권한, HTTPS 접속, 다른 앱의 카메라 사용 여부를 확인하세요.');
-    el('status').textContent='카메라를 실행할 수 없습니다.';
-  }
+ if(!app||starting)return;
+ starting=true;$('retry').disabled=true;
+ try{
+  if(!window.isSecureContext||!navigator.mediaDevices)throw Error('HTTPS 보안 연결 또는 카메라 접근을 확인해 주세요.');
+  if(typeof Html5Qrcode==='undefined')throw Error('스캐너 라이브러리를 불러오지 못했습니다. 인터넷 연결 또는 회사 네트워크 제한을 확인해 주세요.');
+  finished=false;await stop();err('');$('status').textContent='후면 카메라를 여는 중…';
+  // No qrbox: scan the FULL frame. Previously a max 260px ROI excluded small/off-center labels.
+  scanner=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE],verbose:false});
+  await scanner.start({facingMode:'environment'},{fps:12,disableFlip:true,aspectRatio:1.333333},decode,()=>{});
+  running=true;$('status').textContent='스캔 중 — QR코드를 화면 중앙에 크게 보여 주세요.';
+  await setupControls();
+  // Higher resolution is optional, and only applied if browser accepts it.
+  try{await scanner.applyVideoConstraints({width:{ideal:1920},height:{ideal:1080}});}catch(_){}
+ }catch(e){$('status').textContent='카메라를 실행하지 못했습니다.';err('실행 오류: '+(e&&e.message?e.message:String(e)));await stop();}
+ finally{starting=false;$('retry').disabled=false;}
 }
-el('retry').addEventListener('click',start);
+$('retry').addEventListener('click',start);
+$('wide').addEventListener('click',()=>{$('status').textContent='QR을 화면 가운데 놓고, 흐릿하면 거리를 조금 조정해 보세요.';});
+$('zoom').addEventListener('input',async e=>{
+ const value=Number(e.target.value);$('zoomLabel').textContent=value.toFixed(1)+'×';
+ const ok=await tryVideoConstraint({zoom:value});if(!ok)err('이 기기에서는 카메라 확대 기능이 지원되지 않을 수 있습니다.');
+});
+$('torch').addEventListener('click',async()=>{
+ const next=!torchOn;const ok=await tryVideoConstraint({torch:next});
+ if(ok){torchOn=next;$('torch').textContent=next?'손전등 끄기':'손전등 켜기';}
+ else err('이 기기에서는 손전등 조작을 지원하지 않습니다.');
+});
 window.addEventListener('pagehide',()=>{stop();});
 window.addEventListener('load',()=>{if(app)start();});
 </script>
